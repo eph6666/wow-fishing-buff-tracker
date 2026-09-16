@@ -3,7 +3,7 @@
 ## Notes: Tracks fishing buffs and provides clickable item and toy shortcuts.
 ## Notes-zhCN: 监控钓鱼常用增益，并提供可点击的物品和玩具快捷栏。
 ## Author: Zacwang
-## Version: 0.2.0
+## Version: 0.2.1
 ## SavedVariables: FishingBuffTrackerDB
 
 Data.lua

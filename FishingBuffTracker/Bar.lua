@@ -4,6 +4,7 @@ local ACTIVE_BORDER = { 0.2, 0.9, 0.35, 1 }
 local MISSING_BORDER = { 1, 0.62, 0.15, 1 }
 local UNAVAILABLE_BORDER = { 0.5, 0.5, 0.5, 1 }
 local EQUIPMENT_BORDER = { 1, 0.2, 0.2, 1 }
+local DRAG_AREA_WIDTH = 20
 local CLOSE_AREA_WIDTH = 22
 local RebuildBar
 local RefreshBar
@@ -25,7 +26,7 @@ local function FormatTime(seconds)
     return ""
 end
 
-local function StartMoving(button)
+local function StartMoving()
     if NS.db.frame.locked or InCombatLockdown() then
         return
     end
@@ -92,16 +93,13 @@ local function ShowTooltip(button)
     if entry.requiredEquippedItemID and not NS:IsRequiredEquipmentReady(entry) then
         GameTooltip:AddLine("钓鱼工具栏位 28 未装备指定渔竿。", 1, 0.2, 0.2)
     end
-    GameTooltip:AddLine("解锁后可拖拽图标移动状态栏。", 0.55, 0.55, 0.55)
+    GameTooltip:AddLine("使用左侧手柄移动状态栏。", 0.55, 0.55, 0.55)
     GameTooltip:Show()
 end
 
 local function CreateButton(parent)
     local button = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
     button:RegisterForClicks("AnyUp")
-    button:RegisterForDrag("LeftButton")
-    button:SetScript("OnDragStart", StartMoving)
-    button:SetScript("OnDragStop", StopMoving)
     button:SetScript("OnEnter", ShowTooltip)
     button:SetScript("OnLeave", GameTooltip_Hide)
 
@@ -209,11 +207,17 @@ local function UpdateLayout()
 
     local count = #visible
     local width = count > 0 and (count * config.iconSize + (count - 1) * config.spacing) or config.iconSize
-    NS.Bar:SetSize(width + 8 + CLOSE_AREA_WIDTH, config.iconSize + 8)
+    NS.Bar:SetSize(width + 8 + DRAG_AREA_WIDTH + CLOSE_AREA_WIDTH, config.iconSize + 8)
 
     for index, button in ipairs(visible) do
         button:ClearAllPoints()
-        button:SetPoint("LEFT", NS.Bar, "LEFT", 4 + (index - 1) * (config.iconSize + config.spacing), 0)
+        button:SetPoint(
+            "LEFT",
+            NS.Bar,
+            "LEFT",
+            DRAG_AREA_WIDTH + 4 + (index - 1) * (config.iconSize + config.spacing),
+            0
+        )
     end
 end
 
@@ -230,6 +234,36 @@ function NS:CreateBar()
     bar:SetBackdropColor(0.04, 0.05, 0.06, 0.78)
     bar:SetBackdropBorderColor(0.3, 0.35, 0.4, 0.9)
     bar.buttons = {}
+
+    local dragHandle = CreateFrame("Button", nil, bar)
+    dragHandle:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+    dragHandle:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
+    dragHandle:SetWidth(DRAG_AREA_WIDTH)
+    dragHandle:RegisterForDrag("LeftButton")
+    dragHandle:SetScript("OnDragStart", StartMoving)
+    dragHandle:SetScript("OnDragStop", StopMoving)
+    dragHandle:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        if NS.db.frame.locked then
+            GameTooltip:SetText("状态栏已锁定")
+            GameTooltip:AddLine("在控制台取消“锁定状态栏”，或输入 /fbt unlock。", 0.8, 0.8, 0.8)
+        else
+            GameTooltip:SetText("拖动状态栏")
+            GameTooltip:AddLine("按住鼠标左键拖动。", 0.8, 0.8, 0.8)
+        end
+        GameTooltip:Show()
+    end)
+    dragHandle:SetScript("OnLeave", GameTooltip_Hide)
+
+    dragHandle.lines = {}
+    for index = 1, 3 do
+        local line = dragHandle:CreateTexture(nil, "ARTWORK")
+        line:SetColorTexture(0.75, 0.8, 0.85, 1)
+        line:SetSize(10, 1)
+        line:SetPoint("CENTER", dragHandle, "CENTER", 0, (index - 2) * 4)
+        dragHandle.lines[index] = line
+    end
+    bar.dragHandle = dragHandle
 
     local closeButton = CreateFrame("Button", nil, bar, "UIPanelCloseButton")
     closeButton:SetSize(22, 22)
@@ -324,5 +358,6 @@ RefreshBar = function(self)
     if allowProtectedChanges then
         UpdateLayout()
     end
+    self.dragHandle:SetAlpha(config.locked and 0.25 or 0.9)
     self:SetBackdropColor(0.04, 0.05, 0.06, config.locked and 0.45 or 0.78)
 end

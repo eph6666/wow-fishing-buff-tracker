@@ -294,7 +294,7 @@ SlashCmdList.FISHINGBUFFTRACKER = function(input)
     elseif command == "unlock" then
         NS.db.frame.locked = false
         NS:Refresh()
-        NS:Print("状态栏已解锁，可拖拽图标移动。")
+        NS:Print("状态栏已解锁，可拖动左侧手柄移动。")
     elseif command == "defaults" then
         NS:ResetEntries()
         NS:Print("内置 Buff 列表已恢复。")

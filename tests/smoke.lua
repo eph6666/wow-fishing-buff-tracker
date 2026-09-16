@@ -48,6 +48,14 @@ function Widget:IsMovable()
     return true
 end
 
+function Widget:StartMoving()
+    self.moving = true
+end
+
+function Widget:StopMovingOrSizing()
+    self.moving = false
+end
+
 function Widget:SetText(value)
     self.text = tostring(value or "")
 end
@@ -179,6 +187,14 @@ assert(#namespace.Bar.buttons == #namespace.BUILTIN_ENTRIES, "built-in buttons w
 assert(namespace.Bar.buttons[1].attributes.type == "toy", "toy action was not configured")
 assert(namespace.Bar.buttons[2].attributes.item == "item:241316", "item action was not configured")
 assert(namespace.Bar.buttons[5].attributes.macrotext:find("/use 28", 1, true), "fishing tool macro is missing")
+assert(namespace.Bar.dragHandle, "drag handle was not created")
+assert(namespace.Bar.dragHandle:GetScript("OnDragStart"), "drag handle start script is missing")
+assert(namespace.Bar.dragHandle:GetScript("OnDragStop"), "drag handle stop script is missing")
+
+namespace.Bar.dragHandle:GetScript("OnDragStart")()
+assert(namespace.Bar.moving == true, "drag handle should start moving the bar")
+namespace.Bar.dragHandle:GetScript("OnDragStop")()
+assert(namespace.Bar.moving == false, "drag handle should stop moving the bar")
 assert(namespace.Bar.buttons[1].icon.desaturated == true, "missing buff icon should be desaturated")
 
 auraList = {
