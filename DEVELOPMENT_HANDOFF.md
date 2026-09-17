@@ -1,6 +1,6 @@
 # Fishing Buff Tracker 开发交接
 
-更新时间：2026-09-16
+更新时间：2026-09-17
 
 当前版本：`0.2.1`
 
@@ -247,7 +247,7 @@ wow-fishing-buff-tracker/
 发布包 SHA256：
 
 ```text
-f02fd640d00dc4ae5865db00b1d2986c1418764ad6dab59f8a2821f62516bc53
+245386e44dc860dccd4b9d2c45064b0747b8b4fe77ec032c40a29e8791cb950b
 ```
 
 ## 八、Git 与设备迁移
