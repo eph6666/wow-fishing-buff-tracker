@@ -1,7 +1,7 @@
 local ADDON_NAME, NS = ...
 
 NS.ADDON_NAME = ADDON_NAME
-NS.DB_VERSION = 1
+NS.DB_VERSION = 2
 
 NS.DEFAULT_FRAME = {
     point = "CENTER",
@@ -42,7 +42,9 @@ NS.BUILTIN_ENTRIES = {
         label = "晶华感知瓶剂",
         category = "phial",
         itemID = 191354,
-        spellID = 371454,
+        useSpellID = 371454,
+        -- Database-backed Aura ID; still needs confirmation after use in a live client.
+        spellID = 393714,
         action = "item",
         enabled = true,
         builtin = true,
@@ -62,7 +64,11 @@ NS.BUILTIN_ENTRIES = {
         label = "尖刺钉螺",
         category = "bobber",
         itemID = 262651,
-        spellID = 1284999,
+        useSpellID = 1284999,
+        enchantID = 8675,
+        -- Retail 12.1.0 defines FishingToolSlot as 28. Its enchantment return
+        -- and successful item application still need live-client validation.
+        inventorySlot = 28,
         action = "macro",
         macrotext = "/use item:262651\n/use 28",
         requiredEquippedItemID = 244790,

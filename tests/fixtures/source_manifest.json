@@ -1,0 +1,276 @@
+{
+  "retrieved_date": "2026-09-17",
+  "target": "Retail 12.1.0 (69814)",
+  "blizzard_commit": "4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59",
+  "limitation": "Database responses are not live-client captures. Source-mirror Lua is not the WoW C++ runtime. SHA256 records the retrieved bytes; dynamic pages may change.",
+  "sources": [
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_FrameXML/SecureTemplates.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_FrameXML/SecureTemplates.lua",
+      "sha256": "5fd1efcbfc20b4d426187f55dbee52542d37befd1ef52082db1f466f1049929a"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_FrameXML/SecureTemplates.xml",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_FrameXML/SecureTemplates.xml",
+      "sha256": "32e3bd4db8498bb0d9bd9ff93f1e1d21141cf21ef0b192d333188b326202851b"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_FrameXMLUtil/AuraUtil.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_FrameXMLUtil/AuraUtil.lua",
+      "sha256": "c273c6be5d4bfce92c54510f5a1729f84bf9762ded0a4a9c523363d713b5f909"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/UnitAuraDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/UnitAuraDocumentation.lua",
+      "sha256": "39405809f92e74a945034529d2a2962ebebe9a70fe581b2f411586fc2b72d5d5"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/FrameScriptDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/FrameScriptDocumentation.lua",
+      "sha256": "00f538cb711b5baa0a7f819fae4b038c9189e234ac70c1aaf8c51e4d9335628c"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretPredicateAPIDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretPredicateAPIDocumentation.lua",
+      "sha256": "01ec6fdea1aef17cc5603edae6f61f8922d5b2546fb9f3d551cf4d3e7c6a2bc8"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/ItemDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/ItemDocumentation.lua",
+      "sha256": "96a47025f01b338a1fb6891825bc1d71e888910008cd12dd22a54089427c64ae"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/PaperDollInfoDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/PaperDollInfoDocumentation.lua",
+      "sha256": "e260258dc087c7b5edff222b3fafe0e34b86678a15bb6a90a9f627c62923a917"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleFrameAPIDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleFrameAPIDocumentation.lua",
+      "sha256": "76fd146d432cb7ad8bc9d8ae034e29e54cd9d06f4de33c2c321874ecab0cea42"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_Deprecated/Shared/Deprecated_12_1_0.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_Deprecated/Shared/Deprecated_12_1_0.lua",
+      "sha256": "5a9cf3082c69254146b6fae9c1e2a4c93003b861ec2ffae962bf4a4ad261355d"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_Professions/Blizzard_ProfessionsCrafting.xml",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_Professions/Blizzard_ProfessionsCrafting.xml",
+      "sha256": "3a5f6a1fcc0bcfbaa81d2c0d9ce5fdeb017c34ad7e1d8c2d64e95dc4155f0c1b"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua",
+      "sha256": "11835d2b8ff1b7e00e7eb6f9f1c56c82a47c6a9ad6beb03efbcd978691d1b7c5"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_Settings_Shared/Blizzard_SettingsPanel.xml",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_Settings_Shared/Blizzard_SettingsPanel.xml",
+      "sha256": "a9357f19cb028c9d9dc81e72b6a6ce60e4e1fdc6206045e6bb91cb593e0af8b3"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_Settings_Shared/Blizzard_SettingsLayouts.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_Settings_Shared/Blizzard_SettingsLayouts.lua",
+      "sha256": "bbf2d363789b2515031c6d0ce6d18d3119f9a5e6766a289c6e1302f3852d2353"
+    },
+    {
+      "kind": "game_database_page",
+      "url": "https://www.wowhead.com/spell=1284999/pointed-spikesnail",
+      "sha256": "aeb3d59df8bc643f109d6e985813670d002c02c35dd4d509c7f9144a16eb841b"
+    },
+    {
+      "kind": "game_database_page",
+      "url": "https://www.wowhead.com/spell=371454/crystalline-phial-of-perception",
+      "sha256": "61ae662561361a46767bd3fd203901c3217ea2142ed5c2a38ca65b8b3bc38441"
+    },
+    {
+      "kind": "game_database_page",
+      "url": "https://www.wowhead.com/spell=393714/crystalline-phial-of-perception",
+      "sha256": "c0dab148b6f7f30aac6121888da8561538e241263bf36ab51237415f45c558d4"
+    },
+    {
+      "kind": "game_database_page",
+      "url": "https://www.wowhead.com/search?q=Crystalline+Phial+of+Perception",
+      "sha256": "767b606737b3c942302f1ac80bef54586e2432adf591576e5968f7f1bab8096f"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/191354?dataEnv=1&locale=4",
+      "name": "晶化感知瓶剂",
+      "has_buff_tooltip": null,
+      "sha256": "c8a959dc7171287087acfec30cc4449577390368f1b0b51c0abf181d89fadf4f"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/202207?dataEnv=1&locale=4",
+      "name": "可重复使用的巨型鱼漂",
+      "has_buff_tooltip": null,
+      "sha256": "abb2d056cd4ded08e9a7a276ad1bdddac8d44a9d1d43bea8721854711ee085ee"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/241316?dataEnv=1&locale=4",
+      "name": "哈籁尼尔感知瓶剂",
+      "has_buff_tooltip": null,
+      "sha256": "af72bb62a2e6a67ac6be2cb4f1e215b11fbb6934ee7e541677701f8e15e34027"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/242299?dataEnv=1&locale=4",
+      "name": "血艳蓟茶",
+      "has_buff_tooltip": null,
+      "sha256": "b90bb0ffacdd30b497b600c8b5508d6fe0a51785c75f9184c765698bdc62b8fd"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/262651?dataEnv=1&locale=4",
+      "name": "尖刺钉螺",
+      "has_buff_tooltip": null,
+      "sha256": "c3714746efcf246019bad184dc68809fb8da56e757e5bb1ca29fe502fef3b9b9"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/274587?dataEnv=1&locale=4",
+      "name": "斑点鳉鱼",
+      "has_buff_tooltip": null,
+      "sha256": "1a59a179159a0a29f73a65dc448c851f2fb7c16fc97c21d2e96134e492d43e2c"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/274588?dataEnv=1&locale=4",
+      "name": "剧毒特拉皮鱼",
+      "has_buff_tooltip": null,
+      "sha256": "bae0d908c1ef38fb31eefe6aab255f5633750afeace04e6559b2c95ab6cf1335"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/item/277821?dataEnv=1&locale=4",
+      "name": "乌拉特克蛇头鱼诱饵",
+      "has_buff_tooltip": null,
+      "sha256": "794eaa0b911b71c7e884e0a4c2c56a11de54b4593e37188cbc9bb25a9786ae2d"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/1236763?dataEnv=1&locale=4",
+      "name": "哈籁尼尔感知瓶剂",
+      "has_buff_tooltip": true,
+      "sha256": "663896f72f40a938e87a77da6442e5b3072f53209d17dd22678489779feab075"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/1269152?dataEnv=1&locale=4",
+      "name": "悠闲",
+      "has_buff_tooltip": true,
+      "sha256": "f59a6844bb91e3aff7363183f1fb7c965a2acd69ed9de79fd507ab590f24f20c"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/1284999?dataEnv=1&locale=4",
+      "name": "尖刺钉螺",
+      "has_buff_tooltip": false,
+      "sha256": "97ca779cc2ede19f1315ef466e3cb0fe344827c2af900b948b534d70cbf404a4"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/1302820?dataEnv=1&locale=4",
+      "name": "乌拉特克蛇头鱼诱饵",
+      "has_buff_tooltip": true,
+      "sha256": "01881713f223a89f4776827af8f695f23bbab17fac46e8d13f877b2dbd9694f2"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/1303623?dataEnv=1&locale=4",
+      "name": "巧手鱼饵",
+      "has_buff_tooltip": true,
+      "sha256": "2f0bf2017587c0f091df8c016f7012aa39cdedae39318f59028924804d04da72"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/1303624?dataEnv=1&locale=4",
+      "name": "感知鱼饵",
+      "has_buff_tooltip": true,
+      "sha256": "8b04b6ab6e01703414d956299c926aa7f8e66eb623b6bd27dbdbccd60a39783b"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/371454?dataEnv=1&locale=4",
+      "name": "晶化感知瓶剂",
+      "has_buff_tooltip": false,
+      "sha256": "ec5559011505a823e08b9d73da32e51d815b4ab72cdd3a9c9b9a63eb45fb3fe8"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/393714?dataEnv=1&locale=4",
+      "name": "晶化感知瓶剂",
+      "has_buff_tooltip": true,
+      "sha256": "8c0d85c41aad300fce2def1eadbfbbee5bcd73e0ada8629b483157aa81ddee8a"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/393715?dataEnv=1&locale=4",
+      "name": "晶化感知瓶剂",
+      "has_buff_tooltip": false,
+      "sha256": "e1cd0b7206f0bbc2fbb5ce35d2df03232c5dbe21ba0e8a0e00035d9d753536cf"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/393716?dataEnv=1&locale=4",
+      "name": "晶化感知瓶剂",
+      "has_buff_tooltip": false,
+      "sha256": "e90e6d077c107694427bd8534efd8a36cc6c41a38c32c078cf59a72ce09598b3"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/395804?dataEnv=1&locale=4",
+      "name": "晶化感知瓶剂",
+      "has_buff_tooltip": false,
+      "sha256": "20d8efcc8e0653439c3c15997e935ee3803a8614dca14ff61227577c98205e2a"
+    },
+    {
+      "kind": "game_database_tooltip",
+      "url": "https://nether.wowhead.com/tooltip/spell/397827?dataEnv=1&locale=4",
+      "name": "巨型鱼漂",
+      "has_buff_tooltip": true,
+      "sha256": "9b887c795b195caae2bb560f2ad5c2c9f49e0ed05baf0d0bf243f3e9a70ee094"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleEditBoxAPIDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleEditBoxAPIDocumentation.lua",
+      "sha256": "197d0d7321b78b8e57542dc80f35e2409bb338fe42f1d3899bcf59be74baba4c"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleScriptRegionResizingAPIDocumentation.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleScriptRegionResizingAPIDocumentation.lua",
+      "sha256": "a3321cce107b1d934487ce6e82c40fc2c7d37c279ee3fd18ea00b3fd8bc954a2"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_Settings_Shared/Blizzard_ImplementationReadme.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_Settings_Shared/Blizzard_ImplementationReadme.lua",
+      "sha256": "518bbd1c959d61c8740b9d93e0f917b8eb4dae92d9eed278db42b934f9189720"
+    },
+    {
+      "kind": "blizzard_source_mirror",
+      "path": "Interface/AddOns/Blizzard_SharedXML/SecureScrollTemplates.lua",
+      "url": "https://raw.githubusercontent.com/Gethe/wow-ui-source/4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59/Interface/AddOns/Blizzard_SharedXML/SecureScrollTemplates.lua",
+      "sha256": "32aa8afd51f5d33ae878d447d4a5142d6d4c1a2ffa4eb5e9b98b02404dc674ac"
+    }
+  ]
+}

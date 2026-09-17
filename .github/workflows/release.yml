@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Lua 5.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes lua5.1
+
+      - name: Run addon regressions and syntax checks
+        run: |
+          lua5.1 tests/smoke.lua FishingBuffTracker
+          lua5.1 tests/audit.lua FishingBuffTracker
+          luac5.1 -p FishingBuffTracker/*.lua tests/*.lua tests/fixtures/review_data.lua
+          git diff --check
+
+      - name: Verify pinned Blizzard source contracts
+        env:
+          BLIZZARD_COMMIT: 4e3cbb8c5609e4bfc332c0aebbfa4d79731fab59
+        run: |
+          source_dir="$RUNNER_TEMP/fbt-blizzard"
+          mkdir -p "$source_dir"
+          curl --fail --location --retry 3 \
+            "https://codeload.github.com/Gethe/wow-ui-source/tar.gz/$BLIZZARD_COMMIT" \
+            --output "$source_dir/source.tar.gz"
+          tar -xzf "$source_dir/source.tar.gz" -C "$source_dir"
+          lua5.1 tests/blizzard_contract.lua FishingBuffTracker \
+            "$source_dir/wow-ui-source-$BLIZZARD_COMMIT"
+
+      - name: Build and verify release archives
+        run: |
+          python3 scripts/package.py --version "$GITHUB_REF_NAME"
+          cd dist
+          sha256sum --check SHA256SUMS
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/FishingBuffTracker-v$version.zip" \
+            "dist/FishingBuffTracker-v$version.tar.gz" \
+            dist/SHA256SUMS \
+            --verify-tag \
+            --title "Fishing Buff Tracker $GITHUB_REF_NAME" \
+            --notes-file "docs/releases/$GITHUB_REF_NAME.md" \
+            --latest

@@ -1,4 +1,5 @@
 local addonPath = assert(arg[1], "addon path is required")
+local unpackValues = unpack or table.unpack
 local frames = {}
 local auraList = {}
 
@@ -20,12 +21,21 @@ function Widget:GetScript(name)
     return self.scripts[name]
 end
 
+-- Creation dimensions only; anchor/resize contracts live in wow_mock + audit.
+function Widget:SetSize(width, height)
+    self.width, self.height = width, height
+end
+function Widget:SetWidth(width) self.width = width end
+function Widget:SetHeight(height) self.height = height end
+function Widget:GetWidth() return rawget(self, "width") or 0 end
+function Widget:GetHeight() return rawget(self, "height") or 0 end
+
 function Widget:SetPoint(point, relativeTo, relativePoint, x, y)
     self.point = { point, relativeTo, relativePoint, x or 0, y or 0 }
 end
 
 function Widget:GetPoint()
-    return table.unpack(self.point or { "CENTER", UIParent, "CENTER", 0, 0 })
+    return unpackValues(self.point or { "CENTER", UIParent, "CENTER", 0, 0 })
 end
 
 function Widget:Show()
@@ -74,6 +84,10 @@ end
 
 function Widget:SetAttribute(key, value)
     self.attributes[key] = value
+end
+
+function Widget:RegisterForClicks(...)
+    self.registeredClicks = { ... }
 end
 
 function Widget:SetDesaturated(value)
@@ -186,6 +200,8 @@ assert(namespace.Config, "config panel was not created")
 assert(#namespace.Bar.buttons == #namespace.BUILTIN_ENTRIES, "built-in buttons were not created")
 assert(namespace.Bar.buttons[1].attributes.type == "toy", "toy action was not configured")
 assert(namespace.Bar.buttons[2].attributes.item == "item:241316", "item action was not configured")
+assert(namespace.Bar.buttons[2].registeredClicks[1] == "AnyDown", "item action should receive mouse-down")
+assert(namespace.Bar.buttons[2].registeredClicks[2] == "AnyUp", "item action should receive mouse-up")
 assert(namespace.Bar.buttons[5].attributes.macrotext:find("/use 28", 1, true), "fishing tool macro is missing")
 assert(namespace.Bar.dragHandle, "drag handle was not created")
 assert(namespace.Bar.dragHandle:GetScript("OnDragStart"), "drag handle start script is missing")

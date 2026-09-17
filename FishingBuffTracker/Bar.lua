@@ -1,6 +1,7 @@
 local ADDON_NAME, NS = ...
 
 local ACTIVE_BORDER = { 0.2, 0.9, 0.35, 1 }
+local UNKNOWN_BORDER = { 0.6, 0.73, 1, 1 }
 local MISSING_BORDER = { 1, 0.62, 0.15, 1 }
 local UNAVAILABLE_BORDER = { 0.5, 0.5, 0.5, 1 }
 local EQUIPMENT_BORDER = { 1, 0.2, 0.2, 1 }
@@ -27,38 +28,73 @@ local function FormatTime(seconds)
 end
 
 local function StartMoving()
-    if NS.db.frame.locked or InCombatLockdown() then
+    if not NS.Bar or NS.barMoving or NS.db.frame.locked or InCombatLockdown() then
         return
     end
     NS.Bar:StartMoving()
+    NS.barMoving = true
 end
 
-local function StopMoving()
-    if not NS.Bar:IsMovable() then
+function NS:StopBarMoving()
+    local bar = self.Bar
+    if not bar or not self.barMoving then
+        self.barMoving = nil
+        self.barStopPending = nil
+        return
+    end
+    if InCombatLockdown() then
+        -- StopMovingOrSizing is protected even if movement began before combat.
+        self.barStopPending = true
         return
     end
 
-    NS.Bar:StopMovingOrSizing()
-    local point, _, relativePoint, x, y = NS.Bar:GetPoint(1)
-    NS.db.frame.point = point
-    NS.db.frame.relativePoint = relativePoint
-    NS.db.frame.x = math.floor(x + 0.5)
-    NS.db.frame.y = math.floor(y + 0.5)
+    bar:StopMovingOrSizing()
+    self.barMoving = nil
+    self.barStopPending = nil
+    local point, _, relativePoint, x, y = bar:GetPoint(1)
+    self.db.frame.point = point
+    self.db.frame.relativePoint = relativePoint
+    self.db.frame.x = math.floor(x + 0.5)
+    self.db.frame.y = math.floor(y + 0.5)
 end
 
-local function ConfigureSecureAction(button, entry)
+local function StopMoving()
+    NS:StopBarMoving()
+end
+
+local function ResetButton(button)
+    if GameTooltip:IsOwned(button) then
+        GameTooltip:Hide()
+    end
+    button:Hide()
+    button:ClearAllPoints()
     button:SetAttribute("type", nil)
     button:SetAttribute("item", nil)
     button:SetAttribute("toy", nil)
+    button:SetAttribute("macro", nil)
     button:SetAttribute("macrotext", nil)
 
-    if entry.action == "toy" then
+    button.entry = nil
+    button.effect = nil
+    button.itemCount = nil
+    button.icon:SetTexture(nil)
+    button.icon:SetDesaturated(false)
+    button.icon:SetAlpha(1)
+    SetBorderColor(button, UNAVAILABLE_BORDER)
+    button.cooldown:Clear()
+    button.countText:SetText("")
+    button.timeText:SetText("")
+    button.warning:Hide()
+end
+
+local function ConfigureSecureAction(button, entry)
+    if entry.action == "toy" and entry.itemID and entry.itemID > 0 then
         button:SetAttribute("type", "toy")
         button:SetAttribute("toy", entry.itemID)
     elseif entry.action == "macro" and entry.macrotext then
         button:SetAttribute("type", "macro")
         button:SetAttribute("macrotext", entry.macrotext)
-    elseif entry.itemID and entry.itemID > 0 then
+    elseif entry.action == "item" and entry.itemID and entry.itemID > 0 then
         button:SetAttribute("type", "item")
         button:SetAttribute("item", "item:" .. entry.itemID)
     end
@@ -66,12 +102,15 @@ end
 
 local function ShowTooltip(button)
     local entry = button.entry
-    local aura = button.aura
+    if not entry then
+        return
+    end
+    local effect = button.effect
 
     GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-    if aura and entry.spellID then
+    if effect and not effect.unknown and not entry.enchantID and entry.spellID and entry.spellID > 0 then
         GameTooltip:SetSpellByID(entry.spellID)
-    elseif entry.itemID then
+    elseif entry.itemID and entry.itemID > 0 then
         GameTooltip:SetHyperlink("item:" .. entry.itemID)
     else
         GameTooltip:SetText(entry.label or "Fishing Buff")
@@ -79,13 +118,27 @@ local function ShowTooltip(button)
 
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine((NS.CATEGORY_LABELS[entry.category] or entry.category or "自定义")
-        .. " · " .. (NS.ACTION_LABELS[entry.action] or entry.action or "物品"), 0.7, 0.8, 1)
+        .. " · " .. (NS.ACTION_LABELS[entry.action] or entry.action or "无动作"), 0.7, 0.8, 1)
 
-    if aura and aura.expirationTime and aura.expirationTime > 0 then
-        local remaining = math.max(0, aura.expirationTime - GetTime())
-        GameTooltip:AddLine("剩余时间：" .. FormatTime(remaining), 0.2, 1, 0.3)
+    -- Effects contain only Core's checked scalars, never raw API Aura/enchant data.
+    if effect and effect.unknown then
+        GameTooltip:AddLine("状态未知：效果数据暂不可读取。", 0.6, 0.73, 1)
+    elseif effect then
+        if effect.expirationTime == nil then
+            GameTooltip:AddLine("已激活，剩余时间未知。", 0.6, 0.73, 1)
+        elseif effect.expirationTime > 0 then
+            local remaining = math.max(0, effect.expirationTime - GetTime())
+            GameTooltip:AddLine("剩余时间：" .. FormatTime(remaining), 0.2, 1, 0.3)
+        else
+            GameTooltip:AddLine(entry.enchantID and "临时附魔已激活。" or "Buff 已激活。", 0.2, 1, 0.3)
+        end
+        if effect.chargesRemaining == nil and effect.applications == nil then
+            GameTooltip:AddLine(entry.enchantID and "剩余次数未知。" or "层数未知。", 0.6, 0.73, 1)
+        end
     elseif entry.hideWhenMissing then
         GameTooltip:AddLine("未激活时按设置隐藏。", 0.7, 0.7, 0.7)
+    elseif entry.enchantID then
+        GameTooltip:AddLine("缺少临时附魔，点击使用对应物品。", 1, 0.75, 0.2)
     else
         GameTooltip:AddLine("缺少 Buff，点击使用对应物品。", 1, 0.75, 0.2)
     end
@@ -99,7 +152,10 @@ end
 
 local function CreateButton(parent)
     local button = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
-    button:RegisterForClicks("AnyUp")
+    -- Secure actions must receive both phases: the ActionButtonUseKeyDown CVar
+    -- decides whether the client executes the action on mouse-down or mouse-up.
+    button:RegisterForClicks("AnyDown", "AnyUp")
+    button:EnableMouse(true)
     button:SetScript("OnEnter", ShowTooltip)
     button:SetScript("OnLeave", GameTooltip_Hide)
 
@@ -115,6 +171,7 @@ local function CreateButton(parent)
 
     button.cooldown = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     button.cooldown:SetAllPoints()
+    button.cooldown:EnableMouse(false)
     button.cooldown:SetDrawEdge(false)
     button.cooldown:SetDrawBling(false)
 
@@ -139,27 +196,31 @@ end
 
 local function RefreshButton(button, allowProtectedChanges, activeAuras)
     local entry = button.entry
-    local aura = activeAuras[entry.spellID]
+    local effect = NS:GetEntryEffect(entry, activeAuras)
     local itemCount = NS:GetItemCount(entry)
     local equipmentReady = NS:IsRequiredEquipmentReady(entry)
-    local itemIcon = entry.itemID and C_Item.GetItemIconByID(entry.itemID)
-    local shouldShow = aura
+    local itemIcon = entry.itemID and entry.itemID > 0 and C_Item.GetItemIconByID(entry.itemID)
+    local shouldShow = effect
         or (not entry.hideWhenMissing and (NS.db.frame.showUnavailable or itemCount > 0))
 
-    button.aura = aura
+    button.effect = effect
     button.itemCount = itemCount
+    local refreshTooltip = GameTooltip:IsShown() and GameTooltip:IsOwned(button)
 
     if allowProtectedChanges then
         button:SetShown(shouldShow and true or false)
     end
 
     if not button:IsShown() then
+        if refreshTooltip then
+            GameTooltip:Hide()
+        end
         return false
     end
 
-    button.icon:SetTexture(aura and aura.icon or itemIcon or 134400)
-    button.icon:SetDesaturated(not aura)
-    if aura then
+    button.icon:SetTexture(effect and effect.icon or itemIcon or 134400)
+    button.icon:SetDesaturated(not effect or effect.unknown == true)
+    if effect then
         button.icon:SetAlpha(1)
     elseif itemCount > 0 then
         button.icon:SetAlpha(0.65)
@@ -168,9 +229,14 @@ local function RefreshButton(button, allowProtectedChanges, activeAuras)
     end
     button.warning:SetShown(not equipmentReady)
 
-    if aura then
+    if effect and effect.unknown then
+        SetBorderColor(button, UNKNOWN_BORDER)
+        button.countText:SetText("")
+        button.cooldown:Clear()
+    elseif effect then
         SetBorderColor(button, ACTIVE_BORDER)
-        button.countText:SetText((aura.applications or 0) > 1 and aura.applications or "")
+        local count = effect.chargesRemaining or effect.applications
+        button.countText:SetText(count == nil and "?" or (count > 1 and count or ""))
         button.cooldown:Clear()
     else
         if not equipmentReady then
@@ -182,7 +248,7 @@ local function RefreshButton(button, allowProtectedChanges, activeAuras)
         end
         button.countText:SetText(itemCount > 0 and itemCount or "0")
 
-        if entry.itemID then
+        if entry.itemID and entry.itemID > 0 then
             local startTime, duration, enable = C_Item.GetItemCooldown(entry.itemID)
             if enable and startTime and duration and duration > 0 then
                 button.cooldown:SetCooldown(startTime, duration)
@@ -190,6 +256,16 @@ local function RefreshButton(button, allowProtectedChanges, activeAuras)
                 button.cooldown:Clear()
             end
         end
+    end
+
+    if effect and effect.expirationTime == nil then
+        button.timeText:SetText("?")
+    else
+        local remaining = effect and effect.expirationTime > 0 and effect.expirationTime - GetTime() or 0
+        button.timeText:SetText(FormatTime(math.max(0, remaining)))
+    end
+    if refreshTooltip then
+        ShowTooltip(button)
     end
 
     return true
@@ -234,6 +310,9 @@ function NS:CreateBar()
     bar:SetBackdropColor(0.04, 0.05, 0.06, 0.78)
     bar:SetBackdropBorderColor(0.3, 0.35, 0.4, 0.9)
     bar.buttons = {}
+    bar.buttonPool = {}
+    bar.appliedEntries = {}
+    bar:SetScript("OnHide", StopMoving)
 
     local dragHandle = CreateFrame("Button", nil, bar)
     dragHandle:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
@@ -278,23 +357,57 @@ function NS:CreateBar()
     bar:SetPoint(config.point, UIParent, config.relativePoint, config.x, config.y)
 
     bar:SetScript("OnUpdate", function(self, elapsed)
+        if not self:IsShown() then
+            return
+        end
+        self.enchantElapsed = (self.enchantElapsed or 0) + elapsed
         self.elapsed = (self.elapsed or 0) + elapsed
         if self.elapsed < 0.1 then
             return
         end
         self.elapsed = 0
+        local now = GetTime()
 
+        -- Slot 28 may change without a player Aura event. Poll only enchantment
+        -- buttons, including missing ones, without refreshing the settings editor.
+        local pollEnchantments = self.enchantElapsed >= 1
+        if pollEnchantments then
+            self.enchantElapsed = 0
+        end
+        local layoutChanged = false
+        local expiredAura = false
         for _, button in ipairs(self.buttons) do
-            local aura = button.aura
-            if button:IsShown() and aura and aura.expirationTime and aura.expirationTime > 0 then
-                local remaining = aura.expirationTime - GetTime()
+            local effect = button.effect
+            if button.entry.enchantID and (pollEnchantments
+                or (effect and effect.expirationTime and effect.expirationTime > 0
+                    and effect.expirationTime <= now)) then
+                local wasShown = button:IsShown()
+                RefreshButton(button, not InCombatLockdown())
+                layoutChanged = layoutChanged or wasShown ~= button:IsShown()
+                effect = button.effect
+            end
+            local remaining = effect and effect.expirationTime and effect.expirationTime > 0
+                and effect.expirationTime - now
+            if remaining and remaining <= 0 and not button.entry.enchantID then
+                expiredAura = true
+            end
+            if button:IsShown() and effect and effect.expirationTime == nil then
+                button.timeText:SetText("?")
+            elseif button:IsShown() and remaining then
                 button.timeText:SetText(FormatTime(math.max(0, remaining)))
-                if remaining <= 0 then
-                    NS:Refresh()
-                end
             else
                 button.timeText:SetText("")
             end
+        end
+        -- API remnants share one retry per second, using the same absolute
+        -- clock as Aura expiration. Keep this deadline across rebuilds/hides;
+        -- new expirations share the remaining delay, while events/show still
+        -- refresh immediately. Timer retries never refresh the settings editor.
+        if expiredAura and (not self.nextAuraRetryAt or now >= self.nextAuraRetryAt) then
+            self.nextAuraRetryAt = now + 1
+            self:Refresh()
+        elseif layoutChanged then
+            UpdateLayout()
         end
     end)
 
@@ -310,30 +423,45 @@ RebuildBar = function(self)
         return
     end
 
-    for _, button in ipairs(self.buttons) do
-        button:Hide()
-        button:SetParent(nil)
-    end
+    -- Only an allowed rebuild applies settings to actions, display and tracking.
+    local appliedEntries = NS:CopyEntries()
     wipe(self.buttons)
 
     local config = NS.db.frame
-    self:SetScale(config.scale)
 
-    for _, entry in ipairs(NS:GetEntries()) do
+    -- Reuse slots, including buttons currently hidden by a missing effect.
+    -- The pool grows only with the largest applied enabled list, never by ID.
+    for _, entry in ipairs(appliedEntries) do
         if entry.enabled then
-            local button = CreateButton(self)
+            local index = #self.buttons + 1
+            local button = self.buttonPool[index]
+            if not button then
+                button = CreateButton(self)
+                self.buttonPool[index] = button
+            end
+            ResetButton(button)
             button.entry = entry
             button:SetSize(config.iconSize, config.iconSize)
             ConfigureSecureAction(button, entry)
             table.insert(self.buttons, button)
         end
     end
+    for index = #self.buttons + 1, #self.buttonPool do
+        local button = self.buttonPool[index]
+        if button.entry then
+            ResetButton(button)
+        end
+    end
 
+    self.appliedEntries = appliedEntries
     self:Refresh()
 end
 
 RefreshBar = function(self)
     local config = NS.db.frame
+    if config.locked or not config.visible then
+        NS:StopBarMoving()
+    end
     local allowProtectedChanges = not InCombatLockdown()
     local activeAuras = NS:ScanAuras()
 

@@ -1,3 +1,24 @@
+# Generated packages and local working notes
+/dist/
+/.local/
 *.zip
 *.tar.gz
+
+# Logs, temporary files and compiled output
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+luac.out
+__pycache__/
+*.py[cod]
+
+# Local environment and editor settings
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
 .DS_Store
+Thumbs.db
