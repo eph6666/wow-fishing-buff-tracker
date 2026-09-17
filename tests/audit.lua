@@ -654,14 +654,19 @@ end)
 
 test("commands_visibility_position_and_lock", function()
     local state, ns = setup()
+    local unlockedWidth = ns.Bar:GetWidth()
     state:script(ns.Bar.dragHandle, "OnDragStart")
     equal(ns.Bar.moving, true)
     state:script(ns.Bar.dragHandle, "OnDragStop")
     equal(ns.Bar.moving, false)
     state:command("lock")
+    equal(ns.Bar.dragHandle:IsShown(), false)
+    equal(ns.Bar:GetWidth(), unlockedWidth - 20)
     state:script(ns.Bar.dragHandle, "OnDragStart")
     equal(ns.Bar.moving, false)
     state:command("unlock")
+    equal(ns.Bar.dragHandle:IsShown(), true)
+    equal(ns.Bar:GetWidth(), unlockedWidth)
     state:script(ns.Bar.closeButton, "OnClick")
     equal(ns.Bar:IsShown(), false)
     equal(ns.db.frame.visible, false)
@@ -836,7 +841,7 @@ for _, case in ipairs(editCases) do
         checkDraft()
         ns.Config.lock:SetChecked(true)
         state:script(ns.Config.lock, "OnClick")
-        equal(ns.Bar.dragHandle.alpha, 0.25)
+        equal(ns.Bar.dragHandle:IsShown(), false)
         checkDraft()
         for _, visible in ipairs({ false, true }) do
             ns.Config.showBar:SetChecked(visible)
@@ -1784,7 +1789,9 @@ test("f05_partial_aura_scans_sanitize_fields_and_mark_only_applied_spells_unknow
     equal(button.timeText:GetText(), "?")
     equal(button.countText:GetText(), "?")
     equal(ns:ScanAuras()[870001], nil)
-    state.auras = { access:table({}, { tableReadable = false }) }
+    state.auras = {
+        access:table({}, { tableReadable = false, querySpellID = oldID }),
+    }
     state:fire("UNIT_AURA", "player")
     equal(button.effect.unknown, true)
     equal(ns:ScanAuras()[oldID].unknown, true)
@@ -1969,7 +1976,8 @@ test("f07_release_and_hidden_reuse_clear_effect_cooldown_text_warning_and_toolti
         elseif mode == "aura" then
             state.auras = { aura(entry.spellID, 220, 4) }
         elseif mode == "unknown" then
-            state.auras = { {} } -- An unreadable identity leaves the watch list unknown.
+            local access = Mock.restrictedAPI(state)
+            state.auras = { access:table(aura(entry.spellID), { tableReadable = false }) }
         end
         state.equippedItemID = nil
         state.counts[entry.itemID] = 9
@@ -3124,6 +3132,53 @@ test("drag_release_after_combat_starts_avoids_protected_call", function()
     state:script(ns.Bar.dragHandle, "OnDragStart")
     state.combat = true
     state:script(ns.Bar.dragHandle, "OnDragStop")
+    equal(ns.barStopPending, true)
+    assert(ns.pendingDragPosition, "combat release position was not captured")
+    state.combat = false
+    state:fire("PLAYER_REGEN_ENABLED")
+    equal(ns.pendingDragPosition, nil)
+end)
+
+test("config_export_import_round_trip_and_rejects_invalid_text", function()
+    local state, ns = setup()
+    local exported = ns:ExportEntries()
+    assert(exported:find("FBT%-ENTRIES%-1"))
+    assert(exported:find(";", 1, true))
+    assert(not exported:find("|", 1, true), "new export contains WoW pipe escapes")
+    assert(not exported:find("\t", 1, true), "new export still contains tab separators")
+    assert(exported:find("%%0A"), "macro newline was not escaped")
+    assert(exported:find("可重复使用的巨型鱼漂", 1, true),
+        "UTF-8 labels should remain readable")
+
+    local original = ns:GetEntries()
+    ns.db.entries = { original[1] }
+    local success, message = ns:ImportEntries(exported)
+    equal(success, true)
+    assert(message:find("8", 1, true))
+    equal(#ns:GetEntries(), 8)
+    equal(ns:GetEntries()[1].label, "可重复使用的巨型鱼漂")
+    equal(ns:GetEntries()[5].macrotext, "/use item:262651\n/use 28")
+
+    local imported = ns:GetEntries()
+    success = ns:ImportEntries("not a profile")
+    equal(success, false)
+    equal(ns:GetEntries(), imported, "failed import replaced the active configuration")
+end)
+
+test("config_export_import_buttons_open_dialog_and_apply", function()
+    local state, ns = setup()
+    ns:OpenConfig()
+    state:script(ns.Config.exportButton, "OnClick")
+    equal(ns.Config.transferDialog:IsShown(), true)
+    local exported = ns.Config.transferDialog.edit:GetText()
+    assert(exported:find("FBT%-ENTRIES%-1"))
+    ns.Config.transferDialog:Hide()
+    state:script(ns.Config.importButton, "OnClick")
+    equal(ns.Config.transferDialog.apply:IsShown(), true)
+    ns.Config.transferDialog.edit:SetText(exported)
+    state:script(ns.Config.transferDialog.apply, "OnClick")
+    equal(ns.Config.transferDialog:IsShown(), false)
+    equal(#ns:GetEntries(), 8)
 end)
 
 -- F09: model the native stop re-anchoring the frame, then observe stop/save
@@ -3150,8 +3205,13 @@ do
             end
         end
         bar.GetPoint = function(self, ...)
-            assert(not state.combat, "drag position must not be sampled in combat")
-            equal(self.moving, false, "save must sample the anchor after the native stop")
+            if state.combat then
+                equal(self.moving, true, "combat release must capture a moving frame")
+                trace.reads = trace.reads + 1
+                trace.events[#trace.events + 1] = "save"
+                return unpack(trace.finalPoint)
+            end
+            equal(self.moving, false, "normal save must sample the anchor after the native stop")
             trace.reads = trace.reads + 1
             trace.events[#trace.events + 1] = "save"
             return getPoint(self, ...)
@@ -3215,7 +3275,7 @@ do
             equal(ns.barStopPending, true)
             equal(trace.starts, 1)
             equal(trace.stops, 0)
-            equal(trace.reads, 0)
+            equal(trace.reads, 1)
             savedPosition(ns, "BOTTOMLEFT", "BOTTOMRIGHT", 12, -24)
         end
         state.combat = false
@@ -3338,7 +3398,7 @@ do
                 equal(bar.appliedEntries, applied)
                 equal(button.attributes.item, "item:241316")
                 equal(trace.stops, 0)
-                equal(trace.reads, 0)
+                equal(trace.reads, 1)
                 savedPosition(ns, "BOTTOMLEFT", "BOTTOMRIGHT", 12, -24)
                 local function expectedPosition()
                     if reset then
@@ -3371,7 +3431,7 @@ do
                 end
                 state.combat = false
                 state:fire("PLAYER_REGEN_ENABLED")
-                equal(table.concat(trace.events, ","), "stop,save,"
+                equal(table.concat(trace.events, ","), "save,stop,"
                     .. (reset and "ResetFramePosition," or "") .. "SetBarVisible,RequestRebuild")
                 expectedPosition()
                 equal(ns.positionResetPending, nil)
@@ -3443,7 +3503,7 @@ do
                 equal(bar:IsMovable(), true)
                 if combat then
                     equal(trace.stops, 0)
-                    equal(trace.reads, 0)
+                    equal(trace.reads, 1)
                     equal(ns.barStopPending, true)
                     savedPosition(ns, "BOTTOMLEFT", "BOTTOMRIGHT", 12, -24)
                     state.combat = false
@@ -3475,7 +3535,7 @@ do
                 if combat then
                     equal(bar:IsShown(), true)
                     equal(trace.stops, 0)
-                    equal(trace.reads, 0)
+                    equal(trace.reads, 1)
                     equal(ns.barStopPending, true)
                     savedPosition(ns, "BOTTOMLEFT", "BOTTOMRIGHT", 12, -24)
                     state.combat = false
@@ -3500,7 +3560,7 @@ do
                 -- Deliver a native lifecycle callback without calling protected Hide.
                 state:script(bar, "OnHide")
                 equal(trace.stops, 0)
-                equal(trace.reads, 0)
+                equal(trace.reads, 1)
                 equal(ns.barStopPending, true)
                 state.combat = false
                 state:fire("PLAYER_REGEN_ENABLED")
@@ -3542,7 +3602,7 @@ do
             state:fire("PLAYER_REGEN_ENABLED")
             equal(trace.starts, 1)
             equal(trace.stops, 0)
-            equal(trace.reads, 0)
+                equal(trace.reads, 1)
             savedPosition(ns, "BOTTOMLEFT", "BOTTOMRIGHT", 12, -24)
         end
     end)
@@ -4151,7 +4211,8 @@ do
         unknownTime.expirationTime = access:value()
         state.auras = {
             aura(397827, 108), aura(1236763, 0), access:table(unknownTime),
-            access:table({}, { tableReadable = false }), aura(ns:GetEntries()[8].spellID, 99),
+            access:table({}, { tableReadable = false, querySpellID = 1302820 }),
+            aura(ns:GetEntries()[8].spellID, 99),
         }
         ns:Refresh()
         ns:OpenConfig()
@@ -4241,7 +4302,7 @@ do
     end)
 
     test("f11_expired_data_becoming_unknown_stops_retries_until_an_event_recovers_it", function()
-        for _, unknownKind in ipairs({ "identity", "time" }) do
+        for _ = 1, 1 do
             local state, ns = setup()
             ns:OpenConfig()
             local access = Mock.restrictedAPI(state)
@@ -4249,7 +4310,7 @@ do
             ns:Refresh()
             ticks(state, ns, 1)
             local fields = aura(397827)
-            fields[unknownKind == "identity" and "spellId" or "expirationTime"] = access:value()
+            fields.expirationTime = access:value()
             state.auras = { access:table(fields) }
             ticks(state, ns, 10)
             local button = state:button("oversized-bobber")
@@ -4564,20 +4625,21 @@ test("f03_inaccessible_whole_aura_is_unknown_without_indexing", function()
     end
 end)
 
-test("f03_secret_or_inaccessible_spell_id_cannot_be_compared_or_used_as_key", function()
+test("f03_targeted_lookup_does_not_compare_or_key_secret_spell_id", function()
     for _, flags in ipairs({ { true, false }, { false, false }, { true, true } }) do
         local state, ns, access = restrictedSetup()
         local fields = aura(397827)
         fields.spellId = access:value(unpack(flags))
-        local raw, record = access:table(fields, { allowedFields = { spellId = true } })
+        local raw, record = access:table(fields, { querySpellID = 397827 })
         state.auras = { raw }
         local active = ns:ScanAuras()
-        equal(active[397827].unknown, true, "unreadable ID incorrectly treated as absence")
+        equal(active[397827].spellId, 397827,
+            "targeted lookup did not preserve the requested identity")
         equal(active[fields.spellId], nil, "sentinel leaked into the result's keys")
-        equal(ns:FindAura(397827).unknown, true)
+        equal(ns:FindAura(397827).spellId, 397827)
         ns:Refresh()
-        equal(state:button("oversized-bobber").timeText:GetText(), "?")
-        for _, field in ipairs(record.reads) do equal(field, "spellId") end
+        equal(state:button("oversized-bobber").timeText:GetText(), "2m")
+        assert(#record.reads > 0)
     end
 end)
 
@@ -4648,17 +4710,17 @@ test("f03_mixed_partial_scans_keep_readable_matches_in_either_order", function()
         local active = ns:ScanAuras()
         equal(active[397827].expirationTime, 250)
         equal(active[393714].expirationTime, 400)
-        equal(active[1236763].unknown, true)
+        equal(active[1236763], nil)
         equal(ns:FindAura(397827).applications, 4)
         equal(ns:FindAura(393714).applications, 2)
-        equal(ns:FindAura(1236763).unknown, true)
+        equal(ns:FindAura(1236763), nil)
         equal(state:button("oversized-bobber").countText:GetText(), "4")
         assert(entryStatus(state, state:button("crystalline-phial")):find("ACTIVE", 1, true))
-        assert(entryStatus(state, state:button("haranir-phial")):find("UNKNOWN", 1, true))
+        assert(entryStatus(state, state:button("haranir-phial")):find("MISSING", 1, true))
         ns.db.frame.showUnavailable = false
         ns:Refresh()
-        equal(state:button("ulatek-lure"):IsShown(), true,
-            "hideWhenMissing must not hide an unknown effect")
+        equal(state:button("ulatek-lure"):IsShown(), false,
+            "unrelated restricted Auras must not reveal a missing lure")
     end
 end)
 
@@ -4684,7 +4746,9 @@ test("f03_active_unknown_readable_and_missing_transitions_clear_stale_ui", funct
     ns:Refresh()
     state:script(button, "OnEnter")
     equal(button.timeText:GetText(), "2m")
-    state.auras = { access:table({}, { tableReadable = false }) }
+    state.auras = {
+        access:table({}, { tableReadable = false, querySpellID = 397827 }),
+    }
     state:fire("UNIT_AURA", "player")
     equal(button.timeText:GetText(), "?")
     equal(button.countText:GetText(), "")
@@ -4711,7 +4775,9 @@ test("f03_unknown_visibility_respects_combat_and_recovers_after_regen", function
     local lure = state:button("ulatek-lure")
     equal(lure:IsShown(), false)
     state.combat = true
-    state.auras = { access:table({}, { tableReadable = false }) }
+    state.auras = {
+        access:table({}, { tableReadable = false, querySpellID = 1302820 }),
+    }
     state:fire("UNIT_AURA", "player")
     equal(lure.effect.unknown, true)
     equal(lure:IsShown(), false)
@@ -4748,6 +4814,33 @@ test("f03_readable_data_works_without_restriction_apis", function()
     state.auras = {}
     ns:Refresh()
     equal(state:button("oversized-bobber").effect, nil)
+end)
+
+test("config_open_in_combat_is_deferred_until_regen", function()
+    local state, ns = setup()
+    equal(ns.Config:IsShown(), false)
+    state.combat = true
+    state:command("")
+    equal(ns.Config:IsShown(), false)
+    equal(ns.configOpenPending, true)
+    local messageCount = #state.messages
+    state:command("config")
+    equal(#state.messages, messageCount, "repeated requests should not repeat the notice")
+    state.combat = false
+    state:fire("PLAYER_REGEN_ENABLED")
+    equal(ns.configOpenPending, nil)
+    equal(ns.Config:IsShown(), true)
+end)
+
+test("restricted_aura_lookup_does_not_call_tainted_aura_slots", function()
+    local state, ns = setup()
+    state.env.AuraUtil.ForEachAura = function()
+        error("GetAuraSlots taint path must not be used")
+    end
+    state.auras = { aura(397827, 200, 2) }
+    ns:Refresh()
+    equal(state:button("oversized-bobber").effect.spellId, 397827)
+    equal(state:button("oversized-bobber").countText:GetText(), "2")
 end)
 
 test("f03_individual_access_api_fallbacks", function()

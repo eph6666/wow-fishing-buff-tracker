@@ -3,6 +3,21 @@ local ADDON_NAME, NS = ...
 local PANEL_WIDTH = 760
 local PANEL_HEIGHT = 560
 local ROW_HEIGHT = 30
+local EXPORT_HEADER = "FBT-ENTRIES-1"
+local EXPORT_SEPARATOR = ";"
+local EXPORT_FIELDS = {
+    "id", "label", "category", "itemID", "spellID", "useSpellID",
+    "enchantID", "inventorySlot", "action", "macrotext",
+    "requiredEquippedItemID", "hideWhenMissing", "enabled", "builtin",
+}
+local EXPORT_NUMBERS = {
+    itemID = { 0 }, spellID = { 0 }, useSpellID = { 1 },
+    enchantID = { 1 }, inventorySlot = { 1, 28 },
+    requiredEquippedItemID = { 1 },
+}
+local EXPORT_BOOLEANS = {
+    hideWhenMissing = true, enabled = true, builtin = true,
+}
 
 -- Headers and rows share the same columns. Only the name takes spare width;
 -- numeric fields and action buttons keep their font size and usable hit areas.
@@ -68,6 +83,136 @@ local function CreateEditBox(parent, width, numeric)
     box:SetMaxLetters(numeric and 10 or 60)
     box:SetTextInsets(5, 5, 0, 0)
     return box
+end
+
+local function EncodeExportValue(value)
+    if value == nil then
+        return ""
+    end
+    if type(value) == "boolean" then
+        return value and "1" or "0"
+    end
+    -- Keep UTF-8 names and ordinary punctuation human-readable. Only escape
+    -- characters that conflict with the visible, line-based format.
+    return tostring(value)
+        :gsub("%%", "%%25")
+        :gsub(";", "%%3B")
+        :gsub("\t", "%%09")
+        :gsub("\r", "%%0D")
+        :gsub("\n", "%%0A")
+end
+
+local function DecodeExportValue(value)
+    if value:gsub("%%[%x][%x]", ""):find("%", 1, true) then
+        return nil
+    end
+    local decoded = value:gsub("%%(%x%x)", function(hex)
+        return string.char(tonumber(hex, 16))
+    end)
+    return decoded
+end
+
+local function SplitFields(line, separator)
+    local values, start = {}, 1
+    while true do
+        local position = line:find(separator, start, true)
+        if not position then
+            values[#values + 1] = line:sub(start)
+            return values
+        end
+        values[#values + 1] = line:sub(start, position - 1)
+        start = position + 1
+    end
+end
+
+function NS:ExportEntries()
+    local lines = { EXPORT_HEADER }
+    for _, entry in ipairs(self:GetEntries()) do
+        local values = {}
+        for index, field in ipairs(EXPORT_FIELDS) do
+            values[index] = EncodeExportValue(entry[field])
+        end
+        lines[#lines + 1] = table.concat(values, EXPORT_SEPARATOR)
+    end
+    return table.concat(lines, "\n")
+end
+
+function NS:ImportEntries(text)
+    if type(text) ~= "string" then
+        return false, "导入内容不是文本。"
+    end
+    text = text:gsub("\r\n", "\n"):gsub("\r", "\n")
+    local lines = {}
+    for line in (text .. "\n"):gmatch("(.-)\n") do
+        lines[#lines + 1] = line
+    end
+    while #lines > 0 and lines[#lines] == "" do
+        table.remove(lines)
+    end
+    if lines[1] ~= EXPORT_HEADER then
+        return false, "无法识别配置版本，请确认文本以 " .. EXPORT_HEADER .. " 开头。"
+    end
+
+    local entries, ids = {}, {}
+    for lineIndex = 2, #lines do
+        if lines[lineIndex] ~= "" then
+            local encoded = SplitFields(lines[lineIndex], EXPORT_SEPARATOR)
+            if #encoded ~= #EXPORT_FIELDS then
+                return false, "第 " .. lineIndex .. " 行字段数量不正确。"
+            end
+            local entry = {}
+            for index, field in ipairs(EXPORT_FIELDS) do
+                local value = DecodeExportValue(encoded[index])
+                if value == nil then
+                    return false, "第 " .. lineIndex .. " 行包含无效转义。"
+                end
+                if EXPORT_NUMBERS[field] then
+                    if value ~= "" then
+                        local range = EXPORT_NUMBERS[field]
+                        value = self:ParseID(value, range[1], range[2])
+                        if value == nil then
+                            return false, "第 " .. lineIndex .. " 行的 " .. field .. " 无效。"
+                        end
+                        entry[field] = value
+                    end
+                elseif EXPORT_BOOLEANS[field] then
+                    if value ~= "" and value ~= "0" and value ~= "1" then
+                        return false, "第 " .. lineIndex .. " 行的 " .. field .. " 无效。"
+                    end
+                    if value ~= "" then
+                        entry[field] = value == "1"
+                    end
+                else
+                    entry[field] = value ~= "" and value or nil
+                end
+            end
+            if not entry.id or not entry.id:find("%S") or ids[entry.id] then
+                return false, "第 " .. lineIndex .. " 行的条目 ID 为空或重复。"
+            end
+            if not entry.label or not entry.label:find("%S")
+                or not entry.category or not entry.category:find("%S") then
+                return false, "第 " .. lineIndex .. " 行缺少名称或分类。"
+            end
+            if entry.action ~= "item" and entry.action ~= "toy" and entry.action ~= "macro" then
+                return false, "第 " .. lineIndex .. " 行的动作类型无效。"
+            end
+            if entry.action == "macro" and not entry.macrotext then
+                return false, "第 " .. lineIndex .. " 行的宏内容为空。"
+            end
+            ids[entry.id] = true
+            entries[#entries + 1] = entry
+        end
+    end
+    if #entries == 0 then
+        return false, "配置中没有 Buff 条目。"
+    end
+
+    if self.Config then
+        self.Config:CancelEdits()
+    end
+    self.db.entries = entries
+    self:RequestRebuild()
+    return true, "已导入 " .. #entries .. " 个 Buff 条目。"
 end
 
 local function EntryReadOnlyReason(box)
@@ -236,6 +381,93 @@ local function UpdateNumber(field, delta, minimum, maximum)
     end
 end
 
+local function CreateTransferDialog()
+    local dialog = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    dialog:SetSize(620, 410)
+    dialog:SetPoint("CENTER")
+    dialog:SetFrameStrata("DIALOG")
+    dialog:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        edgeSize = 24,
+        insets = { left = 6, right = 6, top = 6, bottom = 6 },
+    })
+    dialog:Hide()
+
+    local title = CreateText(dialog, "", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 20, -18)
+    title:SetPoint("TOPRIGHT", -44, -18)
+    title:SetHeight(24)
+    title:SetJustifyH("LEFT")
+    dialog.title = title
+
+    local help = CreateText(dialog, "", "GameFontHighlightSmall")
+    help:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    help:SetPoint("TOPRIGHT", dialog, "TOPRIGHT", -24, -48)
+    help:SetHeight(34)
+    help:SetJustifyH("LEFT")
+    dialog.help = help
+
+    local closeX = CreateFrame("Button", nil, dialog, "UIPanelCloseButton")
+    closeX:SetPoint("TOPRIGHT", -5, -5)
+    closeX:SetScript("OnClick", function() dialog:Hide() end)
+
+    local scroll = CreateFrame("ScrollFrame", nil, dialog, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 20, -88)
+    scroll:SetPoint("BOTTOMRIGHT", -42, 54)
+    dialog.scroll = scroll
+
+    local edit = CreateFrame("EditBox", nil, scroll, "InputBoxTemplate")
+    edit:SetMultiLine(true)
+    edit:SetAutoFocus(false)
+    edit:SetMaxLetters(0)
+    edit:SetTextInsets(8, 8, 8, 8)
+    edit:SetWidth(548)
+    edit:SetHeight(1200)
+    edit:SetScript("OnEscapePressed", function(self)
+        self:ClearFocus()
+        dialog:Hide()
+    end)
+    scroll:SetScrollChild(edit)
+    dialog.edit = edit
+
+    local close = CreateButton(dialog, "关闭", 80, function()
+        dialog:Hide()
+    end)
+    close:SetPoint("BOTTOMRIGHT", -20, 18)
+
+    local apply = CreateButton(dialog, "导入并应用", 110, function()
+        local success, message = NS:ImportEntries(edit:GetText())
+        NS:Print(message)
+        if success then
+            dialog:Hide()
+        end
+    end)
+    apply:SetPoint("RIGHT", close, "LEFT", -8, 0)
+    dialog.apply = apply
+
+    function dialog:ShowExport()
+        self.title:SetText("导出 Buff 配置")
+        self.help:SetText("复制下面的全部文本并妥善保存。该文本只包含 Buff 条目，不包含状态栏位置与外观。")
+        self.apply:Hide()
+        self.edit:SetText(NS:ExportEntries())
+        self:Show()
+        self.edit:SetFocus()
+        self.edit:HighlightText()
+    end
+
+    function dialog:ShowImport()
+        self.title:SetText("导入 Buff 配置")
+        self.help:SetText("粘贴以 FBT-ENTRIES-1 开头的完整配置文本，然后点击“导入并应用”。")
+        self.apply:Show()
+        self.edit:SetText("")
+        self:Show()
+        self.edit:SetFocus()
+    end
+
+    return dialog
+end
+
 local function CreateEntryRow(parent)
     local row = CreateFrame("Frame", nil, parent)
     local boundEntry
@@ -397,11 +629,24 @@ function NS:CreateConfig()
         NS:ResetFramePosition()
     end)
 
+    local transferDialog = CreateTransferDialog()
+    panel.transferDialog = transferDialog
+    local exportButton = CreateButton(panel, "导出配置", 90, function()
+        transferDialog:ShowExport()
+    end)
+    panel.exportButton = exportButton
+    local importButton = CreateButton(panel, "导入配置", 90, function()
+        transferDialog:ShowImport()
+    end)
+    panel.importButton = importButton
+
     local defaults = CreateButton(panel, "恢复内置列表", 110, function()
         NS:ResetEntries()
     end)
     defaults:SetPoint("TOPRIGHT", -36, -106)
     resetPosition:SetPoint("RIGHT", defaults, "LEFT", -8, 0)
+    importButton:SetPoint("TOPRIGHT", -36, -76)
+    exportButton:SetPoint("RIGHT", importButton, "LEFT", -8, 0)
 
     local numberGroups = {}
     for index = 1, 3 do
@@ -613,5 +858,14 @@ function NS:OpenConfig()
     if not self.ConfigCategory then
         return
     end
+    if InCombatLockdown() then
+        if not self.configOpenPending then
+            self:Print("设置面板将在战斗结束后打开。")
+        end
+        self.configOpenPending = true
+        return false
+    end
+    self.configOpenPending = nil
     Settings.OpenToCategory(self.ConfigCategory:GetID())
+    return true
 end

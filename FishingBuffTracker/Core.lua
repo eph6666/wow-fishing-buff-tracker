@@ -312,36 +312,44 @@ local function ReadField(data, key, expectedType, alternateType)
     end
 end
 
--- Result contract: nil = missing, unknown = unconfirmed presence. A matched
--- snapshot stays active even when individual display fields are nil (unknown).
+-- Result contract: nil = missing, unknown = unconfirmed presence. Query each
+-- configured spell directly instead of AuraUtil.ForEachAura: in restricted
+-- encounters AuraUtil calls GetAuraSlots(), which can taint-fail before the
+-- addon receives any value it could inspect with the secret predicates.
 local function ScanWatchedAuras(watched, stopOnMatch)
     local active = {}
-    local incomplete = false
+    if NS.AuraScanStarted then
+        NS:AuraScanStarted()
+    end
 
-    AuraUtil.ForEachAura("player", "HELPFUL", nil, function(aura)
-        local spellID = ReadField(aura, "spellId", "number")
-        if not spellID then
-            incomplete = true
-        elseif watched[spellID] then
-            -- Only these checked scalars reach UI/timer consumers. Never retain
-            -- the API table: an unrelated secret field must not poison a match.
-            active[spellID] = {
-                spellId = spellID,
-                icon = ReadField(aura, "icon", "number", "string"),
-                expirationTime = ReadField(aura, "expirationTime", "number"),
-                applications = ReadField(aura, "applications", "number"),
-            }
-            return stopOnMatch
-        end
-    end, true)
-
-    -- An unidentified aura could be any unseen tracked spell. Keep readable
-    -- matches, but do not infer absence from a partial scan.
-    if incomplete then
-        for spellID in pairs(watched) do
-            if not active[spellID] then
+    for spellID in pairs(watched) do
+        if not C_UnitAuras or not C_UnitAuras.GetPlayerAuraBySpellID then
+            active[spellID] = { unknown = true }
+        else
+            local aura = C_UnitAuras.GetPlayerAuraBySpellID(spellID)
+            if not CanReadValue(aura) then
                 active[spellID] = { unknown = true }
+            elseif aura ~= nil then
+                if type(aura) ~= "table"
+                or (canaccesstable and not canaccesstable(aura)) then
+                    active[spellID] = { unknown = true }
+                else
+                    local returnedSpellID = ReadField(aura, "spellId", "number")
+                    if returnedSpellID and returnedSpellID ~= spellID then
+                        active[spellID] = { unknown = true }
+                    else
+                        active[spellID] = {
+                            spellId = spellID,
+                            icon = ReadField(aura, "icon", "number", "string"),
+                            expirationTime = ReadField(aura, "expirationTime", "number"),
+                            applications = ReadField(aura, "applications", "number"),
+                        }
+                    end
+                end
             end
+        end
+        if stopOnMatch and active[spellID] then
+            return active
         end
     end
     return active
@@ -540,6 +548,9 @@ events:SetScript("OnEvent", function(_, event, ...)
             NS:RequestRebuild()
         else
             NS:Refresh()
+        end
+        if NS.configOpenPending then
+            NS:OpenConfig()
         end
         return
     end

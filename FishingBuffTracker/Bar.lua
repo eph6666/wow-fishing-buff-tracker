@@ -7,11 +7,53 @@ local UNAVAILABLE_BORDER = { 0.5, 0.5, 0.5, 1 }
 local EQUIPMENT_BORDER = { 1, 0.2, 0.2, 1 }
 local DRAG_AREA_WIDTH = 20
 local CLOSE_AREA_WIDTH = 22
+local CONTENT_INSET = 4
+local VERTICAL_PADDING = 12
 local RebuildBar
 local RefreshBar
 
 local function SetBorderColor(button, color)
     button.border:SetVertexColor(color[1], color[2], color[3], color[4])
+end
+
+local function CreateAlignedBorder(button)
+    local border = { edges = {} }
+
+    local function Edge()
+        local texture = button:CreateTexture(nil, "OVERLAY")
+        texture:SetColorTexture(1, 1, 1, 1)
+        border.edges[#border.edges + 1] = texture
+        return texture
+    end
+
+    local top = Edge()
+    top:SetPoint("TOPLEFT", button, "TOPLEFT", -1, 1)
+    top:SetPoint("TOPRIGHT", button, "TOPRIGHT", 1, 1)
+    top:SetHeight(2)
+
+    local bottom = Edge()
+    bottom:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", -1, -1)
+    bottom:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, -1)
+    bottom:SetHeight(2)
+
+    local left = Edge()
+    left:SetPoint("TOPLEFT", button, "TOPLEFT", -1, 1)
+    left:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", -1, -1)
+    left:SetWidth(2)
+
+    local right = Edge()
+    right:SetPoint("TOPRIGHT", button, "TOPRIGHT", 1, 1)
+    right:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, -1)
+    right:SetWidth(2)
+
+    function border:SetVertexColor(red, green, blue, alpha)
+        self.vertexColor = { red, green, blue, alpha }
+        for _, edge in ipairs(self.edges) do
+            edge:SetVertexColor(red, green, blue, alpha)
+        end
+    end
+
+    return border
 end
 
 local function FormatTime(seconds)
@@ -40,18 +82,43 @@ function NS:StopBarMoving()
     if not bar or not self.barMoving then
         self.barMoving = nil
         self.barStopPending = nil
+        self.pendingDragPosition = nil
         return
     end
     if InCombatLockdown() then
         -- StopMovingOrSizing is protected even if movement began before combat.
+        -- Capture the first release position now; otherwise the native moving
+        -- frame keeps following the cursor and regen would save the wrong spot.
+        if not self.pendingDragPosition then
+            local point, _, relativePoint, x, y = bar:GetPoint(1)
+            self.pendingDragPosition = {
+                point = point,
+                relativePoint = relativePoint,
+                x = x,
+                y = y,
+            }
+        end
         self.barStopPending = true
         return
     end
 
+    local pending = self.pendingDragPosition
     bar:StopMovingOrSizing()
+    if pending then
+        bar:ClearAllPoints()
+        bar:SetPoint(pending.point, UIParent, pending.relativePoint, pending.x, pending.y)
+    end
     self.barMoving = nil
     self.barStopPending = nil
-    local point, _, relativePoint, x, y = bar:GetPoint(1)
+    self.pendingDragPosition = nil
+    local point, relativePoint, x, y
+    if pending then
+        point, relativePoint, x, y =
+            pending.point, pending.relativePoint, pending.x, pending.y
+    else
+        local ignored
+        point, ignored, relativePoint, x, y = bar:GetPoint(1)
+    end
     self.db.frame.point = point
     self.db.frame.relativePoint = relativePoint
     self.db.frame.x = math.floor(x + 0.5)
@@ -163,11 +230,10 @@ local function CreateButton(parent)
     button.icon:SetAllPoints()
     button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    button.border = button:CreateTexture(nil, "OVERLAY")
-    button.border:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
-    button.border:SetBlendMode("ADD")
-    button.border:SetPoint("CENTER")
-    button.border:SetSize(70, 70)
+    -- Four explicit edges share the button's exact bounds. Blizzard's
+    -- UI-ActionButton-Border is oversized, rounded and optically offset, which
+    -- does not align with these square item icons at custom sizes.
+    button.border = CreateAlignedBorder(button)
 
     button.cooldown = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
     button.cooldown:SetAllPoints()
@@ -283,7 +349,13 @@ local function UpdateLayout()
 
     local count = #visible
     local width = count > 0 and (count * config.iconSize + (count - 1) * config.spacing) or config.iconSize
-    NS.Bar:SetSize(width + 8 + DRAG_AREA_WIDTH + CLOSE_AREA_WIDTH, config.iconSize + 8)
+    local leftAreaWidth = config.locked
+        and CONTENT_INSET
+        or DRAG_AREA_WIDTH + CONTENT_INSET
+    NS.Bar:SetSize(
+        width + leftAreaWidth + CONTENT_INSET + CLOSE_AREA_WIDTH,
+        config.iconSize + VERTICAL_PADDING
+    )
 
     for index, button in ipairs(visible) do
         button:ClearAllPoints()
@@ -291,7 +363,7 @@ local function UpdateLayout()
             "LEFT",
             NS.Bar,
             "LEFT",
-            DRAG_AREA_WIDTH + 4 + (index - 1) * (config.iconSize + config.spacing),
+            leftAreaWidth + (index - 1) * (config.iconSize + config.spacing),
             0
         )
     end
@@ -303,12 +375,13 @@ function NS:CreateBar()
     bar:SetMovable(true)
     bar:SetFrameStrata("MEDIUM")
     bar:SetBackdrop({
-        bgFile = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 8,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
     })
     bar:SetBackdropColor(0.04, 0.05, 0.06, 0.78)
-    bar:SetBackdropBorderColor(0.3, 0.35, 0.4, 0.9)
+    bar:SetBackdropBorderColor(0.38, 0.43, 0.48, 0.9)
     bar.buttons = {}
     bar.buttonPool = {}
     bar.appliedEntries = {}
@@ -317,7 +390,9 @@ function NS:CreateBar()
     local dragHandle = CreateFrame("Button", nil, bar)
     dragHandle:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
     dragHandle:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
-    dragHandle:SetWidth(DRAG_AREA_WIDTH)
+    -- Include the gap before the first icon in the handle's visual region so
+    -- its glyph is centered between the outer border and the first icon.
+    dragHandle:SetWidth(DRAG_AREA_WIDTH + CONTENT_INSET)
     dragHandle:RegisterForDrag("LeftButton")
     dragHandle:SetScript("OnDragStart", StartMoving)
     dragHandle:SetScript("OnDragStop", StopMoving)
@@ -334,19 +409,59 @@ function NS:CreateBar()
     end)
     dragHandle:SetScript("OnLeave", GameTooltip_Hide)
 
+    local dragGlyph = CreateFrame("Frame", nil, dragHandle)
+    dragGlyph:SetSize(12, 12)
+    dragGlyph:SetPoint("CENTER", dragHandle, "CENTER", 0, 0)
+    dragHandle.glyph = dragGlyph
     dragHandle.lines = {}
     for index = 1, 3 do
-        local line = dragHandle:CreateTexture(nil, "ARTWORK")
+        local line = dragGlyph:CreateTexture(nil, "ARTWORK")
         line:SetColorTexture(0.75, 0.8, 0.85, 1)
-        line:SetSize(10, 1)
-        line:SetPoint("CENTER", dragHandle, "CENTER", 0, (index - 2) * 4)
+        line:SetSize(12, 1)
+        line:SetPoint("CENTER", dragGlyph, "CENTER", 0, (index - 2) * 4)
         dragHandle.lines[index] = line
     end
     bar.dragHandle = dragHandle
 
-    local closeButton = CreateFrame("Button", nil, bar, "UIPanelCloseButton")
-    closeButton:SetSize(22, 22)
-    closeButton:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
+    local closeButton = CreateFrame("Button", nil, bar)
+    closeButton:SetSize(26, 26)
+    -- The right visual region includes CLOSE_AREA_WIDTH plus CONTENT_INSET.
+    closeButton:SetPoint(
+        "CENTER",
+        bar,
+        "RIGHT",
+        -(CLOSE_AREA_WIDTH + CONTENT_INSET) / 2,
+        0
+    )
+
+    local closeNormal = closeButton:CreateTexture(nil, "ARTWORK")
+    closeNormal:SetTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
+    closeNormal:SetSize(24, 24)
+    closeNormal:SetPoint("CENTER")
+    closeButton.normalTexture = closeNormal
+
+    local closePushed = closeButton:CreateTexture(nil, "ARTWORK")
+    closePushed:SetTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
+    closePushed:SetSize(24, 24)
+    closePushed:SetPoint("CENTER")
+    closePushed:Hide()
+    closeButton.pushedTexture = closePushed
+
+    local closeHighlight = closeButton:CreateTexture(nil, "HIGHLIGHT")
+    closeHighlight:SetTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+    closeHighlight:SetBlendMode("ADD")
+    closeHighlight:SetSize(26, 26)
+    closeHighlight:SetPoint("CENTER")
+    closeButton.highlightTexture = closeHighlight
+
+    closeButton:SetScript("OnMouseDown", function(self)
+        self.normalTexture:Hide()
+        self.pushedTexture:Show()
+    end)
+    closeButton:SetScript("OnMouseUp", function(self)
+        self.pushedTexture:Hide()
+        self.normalTexture:Show()
+    end)
     closeButton:SetScript("OnClick", function()
         NS:SetBarVisible(false)
     end)
@@ -485,7 +600,8 @@ RefreshBar = function(self)
 
     if allowProtectedChanges then
         UpdateLayout()
+        self.dragHandle:SetShown(not config.locked)
     end
-    self.dragHandle:SetAlpha(config.locked and 0.25 or 0.9)
+    self.dragHandle:SetAlpha(0.9)
     self:SetBackdropColor(0.04, 0.05, 0.06, config.locked and 0.45 or 0.78)
 end

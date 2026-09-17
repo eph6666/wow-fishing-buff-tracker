@@ -131,6 +131,15 @@ AuraUtil = {
         end
     end,
 }
+C_UnitAuras = {
+    GetPlayerAuraBySpellID = function(spellID)
+        for _, aura in ipairs(auraList) do
+            if aura.spellId == spellID then
+                return aura
+            end
+        end
+    end,
+}
 C_Item = {
     GetItemCount = function()
         return 3

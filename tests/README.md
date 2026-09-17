@@ -17,8 +17,9 @@ lua5.1 tests/audit.lua FishingBuffTracker
 lua5.1 tests/audit.lua FishingBuffTracker combat_
 ```
 
-`audit.lua` 是回归测试。2026-09-17 修复完成后的验证结果为
-**177 通过、0 失败，退出码 0**。修复前基线为 12 通过、12 失败；
+`audit.lua` 是回归测试。2026-09-17 v0.4.0 的验证结果为
+**181 通过、0 失败，退出码 0**。v0.3.0 修复完成时为 177 项通过；
+修复前基线为 12 通过、12 失败；
 随后按 F01–F11 保留缺陷回归并补充边界测试。任何失败都会产生非零退出码，
 不会把尚未修复的问题当作预期失败而吞掉。
 两个 `database_contract_` 用例使用数据库支持的输入，而非客户端抓取；
@@ -50,8 +51,8 @@ lua5.1 tests/blizzard_contract.lua FishingBuffTracker \
 ```
 
 该测试覆盖 24 组动作/CVar 组合、复用按钮的动作切换及释放、旧点击缺陷
-对照组、Aura 分页及失效槽位、过滤和提前终止，以及物品和临时附魔 API
-签名。它还执行原生 Settings `DisplayLayout` 和滚动模板回调，检查多种
+对照组、定向 Aura 查询及受限结果清理，以及物品和临时附魔 API 签名。
+它还执行原生 Settings `DisplayLayout` 和滚动模板回调，检查多种
 实际内容区域尺寸、窗口变化、最后一行可达性及列表缩短后的滚动钳制。
 拖动契约核对 `StartMoving` 和 `StopMovingOrSizing` 的保护标记；不执行
 这两个原生方法本体。

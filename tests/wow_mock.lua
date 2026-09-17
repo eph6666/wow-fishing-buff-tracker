@@ -296,6 +296,7 @@ function Mock.new(addonPath, savedVariables)
         "SetTextColor", "SetShadowOffset", "SetClampedToScreen", "SetFrameStrata",
         "SetBackdrop", "SetBackdropColor", "SetBackdropBorderColor", "SetColorTexture",
         "SetAutoFocus", "SetNumeric", "SetMaxLetters", "SetTextInsets", "SetJustifyH",
+        "SetMultiLine", "HighlightText",
     }
     for _, method in ipairs(cosmeticMethods) do Widget[method] = function() end end
 
@@ -353,9 +354,20 @@ function Mock.new(addonPath, savedVariables)
     env.AuraUtil = {
         ForEachAura = function(unit, filter, _, callback, packed)
             assert(unit == "player" and filter == "HELPFUL" and packed, "unexpected aura query")
-            state.auraScans = state.auraScans + 1
             for _, aura in ipairs(state.auras) do
                 if callback(aura) then return end
+            end
+        end,
+    }
+    env.C_UnitAuras = {
+        GetPlayerAuraBySpellID = function(spellID)
+            if state.resolveAuraBySpellID then
+                return state.resolveAuraBySpellID(spellID)
+            end
+            for _, aura in ipairs(state.auras) do
+                if type(aura) == "table" and aura.spellId == spellID then
+                    return aura
+                end
             end
         end,
     }
@@ -434,6 +446,9 @@ function Mock.new(addonPath, savedVariables)
             chunk("FishingBuffTracker", state.ns)
         end
     end
+    state.ns.AuraScanStarted = function()
+        state.auraScans = state.auraScans + 1
+    end
     return state
 end
 
@@ -464,6 +479,8 @@ function Mock.restrictedAPI(state)
     function access:table(fields, options)
         options = options or {}
         local record = {
+            fields = fields,
+            querySpellID = options.querySpellID,
             secret = options.secret == true,
             readable = options.readable ~= false,
             tableReadable = options.tableReadable ~= false,
@@ -484,6 +501,18 @@ function Mock.restrictedAPI(state)
         })
         records[value] = record
         return value, record
+    end
+
+    state.resolveAuraBySpellID = function(spellID)
+        for _, aura in ipairs(state.auras) do
+            local record = records[aura]
+            local fields = record and record.fields or aura
+            if record and record.querySpellID == spellID then
+                return aura
+            elseif type(fields) == "table" and fields.spellId == spellID then
+                return aura
+            end
+        end
     end
 
     state.env.issecretvalue = function(value)

@@ -2,7 +2,7 @@
 
 一个面向 World of Warcraft Retail 的钓鱼 Buff 状态栏插件。
 
-当前版本：`0.3.0`，面向 Retail `12.1.0`。
+当前版本：`0.4.0`，面向 Retail `12.1.0`。
 更新内容见 [CHANGELOG.md](CHANGELOG.md)，本地验证见
 [tests/README.md](tests/README.md)，实机待验项目见
 [客户端验收清单](docs/CLIENT_TEST_PLAN.md)。
@@ -18,17 +18,23 @@
 - 支持物品、Toy 和 secure macro 三种动作。
 - 诱饵条目未激活时自动隐藏。
 - 内置设置面板可启用、编辑、排序和新增自定义条目。
+- 支持将全部 Buff 条目导出为文本，并在其他角色或安装中粘贴导入。
 - 设置保存在账号级 `FishingBuffTrackerDB`。
 
 设置中的文本在回车或失焦时提交。Buff、背包和冷却刷新会保留正在编辑的
-草稿；排序、删除、恢复默认、切换条目或关闭面板时，仍未提交的草稿会取消。
+草稿；点击排序等其他控件会使输入框失焦，因此先提交当前编辑，再执行操作。
+关闭面板或内部条目切换时，仍未提交的草稿会取消。
 图标上的 `?` 表示对应信息暂时无法确认，不代表 Buff 已经消失。
 宏条目的 ItemID、临时附魔的追踪 ID 为只读，悬停可查看说明。
 加载时会校验保存的配置，保留有效条目与偏好，恢复损坏的字段。
+导入导出只包含 Buff 条目，不会覆盖状态栏位置、缩放、锁定等界面偏好；
+导出文本中的中文保持明文，仅转义分隔符与换行；导入使用版本化数据格式，
+不会作为 Lua 代码执行。新版使用不会被 WoW 文本系统折叠的 `;` 分隔符，
+当前开发格式以 `FBT-ENTRIES-1` 开头。
 
 ## 安装
 
-从 GitHub Releases 下载 `FishingBuffTracker-v0.3.0.zip`，解压后将整个
+从 GitHub Releases 下载 `FishingBuffTracker-v0.4.0.zip`，解压后将整个
 `FishingBuffTracker` 目录复制到：
 
 ```text
@@ -128,7 +134,7 @@ FishingBuffTracker/
 运行本地测试后，用 Python 3 生成只包含插件运行文件的安装包和校验和：
 
 ```bash
-python3 scripts/package.py --version v0.3.0
+python3 scripts/package.py --version v0.4.0
 ```
 
 发布时更新 TOC、更新记录和对应的 `docs/releases/v版本.md`，再推送同版本

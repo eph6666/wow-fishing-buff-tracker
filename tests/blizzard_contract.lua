@@ -145,84 +145,64 @@ click(itemButton, "LeftButton")
 assert(#actions == 0, "negative control did not reproduce the old missing click")
 print("PASS negative control: AnyUp-only drops the action when useKeyDown=true")
 
--- Execute Blizzard's actual paginated aura enumerator, including a disappearing slot.
-env.CVarCallbackRegistry = { SetCVarCachable = function() end }
-env.EventRegistry = {
-    RegisterFrameEventAndCallback = function() end,
-    RegisterFrameEvent = function() end,
-    RegisterCallback = function() end,
-}
+-- Targeted lookup avoids AuraUtil.GetAuraSlots, which taint-fails when player
+-- Auras become secret. Verify the consumed fields and make the old path fatal.
 local data = {
-    [1] = { spellId = 999999, icon = 1, expirationTime = 200 },
-    [3] = { spellId = 397827, icon = 2, expirationTime = 300, applications = 1 },
-    [4] = { spellId = 1302820, icon = 3, expirationTime = 400, applications = 1 },
+    [397827] = { spellId = 397827, icon = 2, expirationTime = 300, applications = 1 },
+    [1302820] = { spellId = 1302820, icon = 3, expirationTime = 400, applications = 1 },
 }
-local pages = 0
-local slotsRead = {}
+local queries = {}
 env.C_UnitAuras = {
-    GetAuraSlots = function(_, _, _, continuation)
-        pages = pages + 1
-        if not continuation then return 1, 1, 2 end
-        return nil, 3, 4
+    GetPlayerAuraBySpellID = function(spellID)
+        queries[#queries + 1] = spellID
+        return data[spellID]
     end,
-    GetAuraDataBySlot = function(_, slot)
-        slotsRead[#slotsRead + 1] = slot
-        return data[slot]
+    GetAuraSlots = function()
+        error("targeted addon scan must not call taint-prone GetAuraSlots")
     end,
 }
-env.tInvert = function(values)
-    local inverse = {}
-    for key, value in pairs(values) do inverse[value] = key end
-    return inverse
-end
-loadSource("Blizzard_SharedXMLBase/EnumUtil.lua")
-loadSource("Blizzard_FrameXMLUtil/AuraUtil.lua")
 local active = state.ns:ScanAuras()
--- F03 returns sanitized snapshots, so identity with Blizzard's raw API tables
--- is no longer a contract. Check every field the display actually consumes.
 local function assertAuraFields(actual, expected)
-    assert(actual and not actual.unknown, "packed aura pagination lost a watched buff")
+    assert(actual and not actual.unknown, "targeted lookup lost a watched buff")
     for _, field in ipairs({ "spellId", "icon", "expirationTime", "applications" }) do
         assert(actual[field] == expected[field], "aura field changed: " .. field)
     end
 end
-assert(pages == 2, "packed aura pagination stopped too early")
-assertAuraFields(active[397827], data[3])
-assertAuraFields(active[1302820], data[4])
-assert(active[999999] == nil, "unwatched aura was retained")
-slotsRead = {}
-assertAuraFields(state.ns:FindAura(397827), data[3])
-assert(#slotsRead == 3 and slotsRead[3] == 3, "FindAura early termination failed")
-print("PASS Blizzard AuraUtil: pagination, disappearing slots, filtering, early exit")
+assertAuraFields(active[397827], data[397827])
+assertAuraFields(active[1302820], data[1302820])
+queries = {}
+assertAuraFields(state.ns:FindAura(397827), data[397827])
+assert(#queries == 1 and queries[1] == 397827, "FindAura must issue one targeted lookup")
+print("PASS targeted Aura lookup: watched fields, filtering, no GetAuraSlots")
 
--- Actual Blizzard enumeration with strict accessor stubs. This cannot emulate
--- the client's secret values, taint, or its C API restrictions.
+-- Strict accessor stubs cannot emulate client secrets or taint, but verify that
+-- targeted results are sanitized before their fields reach display code.
 local access = Mock.restrictedAPI(state)
 data = {
-    [1] = access:table({}, { tableReadable = false }),
-    [2] = access:table({ spellId = access:value() }),
-    [3] = access:table({
+    [397827] = access:table({
         spellId = 397827, icon = access:value(),
         expirationTime = access:value(), applications = access:value(),
     }),
-    [4] = access:table({ spellId = 393714, icon = 4, expirationTime = 500, applications = 2 }),
+    [393714] = access:table({
+        spellId = 393714, icon = 4, expirationTime = 500, applications = 2,
+    }),
+    [1302820] = access:table({}, { tableReadable = false }),
 }
-pages = 0
 active = state.ns:ScanAuras()
-assert(pages == 2 and active[397827].spellId == 397827 and active[393714].spellId == 393714,
-    "restricted unrelated auras interrupted readable matches")
+assert(active[397827].spellId == 397827 and active[393714].spellId == 393714)
 assert(active[397827].expirationTime == nil and active[397827].applications == nil
     and active[397827].icon == nil, "restricted fields escaped sanitizing")
 assert(active[393714].expirationTime == 500 and active[393714].applications == 2)
-assert(active[1236763].unknown, "partial pagination falsely reported an aura missing")
-slotsRead = {}
+assert(active[1236763] == nil, "missing targeted Aura was not reported missing")
+assert(active[1302820].unknown, "inaccessible targeted Aura was not reported unknown")
+queries = {}
 assert(state.ns:FindAura(397827).spellId == 397827)
-assert(#slotsRead == 3 and slotsRead[3] == 3, "restricted scan lost early termination")
-assert(state.ns:FindAura(1236763).unknown)
+assert(#queries == 1 and queries[1] == 397827)
+assert(state.ns:FindAura(1236763) == nil)
 state.ns:Refresh()
 assert(state:button("oversized-bobber").timeText:GetText() == "?")
 assert(state:button("crystalline-phial").countText:GetText() == "2")
-print("PASS Blizzard AuraUtil: F03 partial scans with strict stubs (not client secrets)")
+print("PASS targeted Aura lookup: restricted result sanitizing (not client secrets)")
 
 local function documentation(relativePath)
     local result
@@ -246,13 +226,15 @@ assert(next(accessFunctions) == nil, "required access predicate missing")
 local auraDocumentation = documentation("UnitAuraDocumentation.lua")
 local checkedAuraAccess = false
 for _, fn in ipairs(auraDocumentation.Functions) do
-    if fn.Name == "GetAuraDataBySlot" then
-        assert(fn.RequiresUnitAuraAccess and fn.SecretWhenUnitAuraRestricted)
+    if fn.Name == "GetPlayerAuraBySpellID" then
+        assert(fn.RequiresNonSecretAura and fn.SecretWhenUnitAuraRestricted)
+        assert(fn.SecretArguments == "AllowedWhenTainted")
+        assert(#fn.Arguments == 1 and fn.Arguments[1].Type == "SpellIdentifier")
         assert(fn.Returns[1].Type == "AuraData" and fn.Returns[1].Nilable)
         checkedAuraAccess = true
     end
 end
-assert(checkedAuraAccess, "slot aura access contract missing")
+assert(checkedAuraAccess, "targeted player Aura access contract missing")
 print("PASS Blizzard F03 aura restrictions and access predicate signatures (source contract only)")
 
 -- Generated API documentation: confirm the cooldown enable flag is a boolean.
@@ -366,6 +348,12 @@ print("PASS Blizzard F06 geometry API signatures and OnSizeChanged source usage"
 
 -- Execute the actual canvas layout branch, with native frames supplied by our
 -- bounded geometry model. This does not execute Settings XML or render a client.
+env.tInvert = function(values)
+    local inverse = {}
+    for key, value in pairs(values) do inverse[value] = key end
+    return inverse
+end
+loadSource("Blizzard_SharedXMLBase/EnumUtil.lua")
 local layoutState = Mock.new(addonPath)
 layoutState:login()
 local layoutEnv, config = layoutState.env, layoutState.ns.Config
